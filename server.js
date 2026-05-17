@@ -35,14 +35,15 @@ app.post("/register-subaccount", async (req, res) => {
         return res.status(400).json({ error: "Missing essential payload configurations." });
     }
 
-    const PAYSTACK_SECRET_KEY = "sk_test_72f0365f7441f25beee4d697f82d7b11efabf7a5"; 
+    // ✅ Match your variable casing perfectly
+    const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
 
     try {
         console.log(`Forwarding subaccount creation request to Paystack for: ${business_name}`);
         const response = await fetch("https://api.paystack.co/subaccount", {
             method: "POST",
             headers: {
-                "Authorization": `Bearer ${PAYSTACK_SECRET_KEY}`,
+                "Authorization": `Bearer ${paystackSecretKey}`, // ✅ Corrected variable
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({ business_name, settlement_bank, account_number, percentage_charge })
