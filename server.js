@@ -1,5 +1,5 @@
 // =========================================================================
-// ☁️ THE WELL BACKEND NODE SERVER WITH EMAIL GATEWAY (server.js)
+// ☁️ THE WELL BACKEND NODE SERVER WITH EMAIL & SMS GATEWAYS (server.js)
 // =========================================================================
 const express = require("express");
 const cors = require("cors");
@@ -12,9 +12,12 @@ app.use(express.json());
 app.use(cors({ origin: true }));
 
 // 🔑 CONFIGURING YOUR GMAIL ENGINE
-// Replace these with your actual Gmail address and the 16-character App Password you generated
 const SENDER_EMAIL = "mikadobro539@gmail.com"; 
 const SENDER_APP_PASSWORD = "ynfm yuxp hgsn eoip"; 
+
+// 🔑 CONFIGURING YOUR ARKESEL SMS ENGINE
+const ARKESEL_API_KEY = "WlN6UVZBdXJrTUpPamdBdURucXo";
+const ARKESEL_SENDER_ID = "TheWell"; // Max 11 characters alphabetic
 
 const transporter = nodemailer.createTransport({
     service: "gmail",
@@ -69,7 +72,6 @@ app.post("/send-email", async (req, res) => {
         return res.status(400).json({ error: "Missing email destination parameters." });
     }
 
-    // A premium, beautifully styled HTML template container for The Well
     const htmlLayout = `
         <div style="font-family: sans-serif; background-color: #0f172a; padding: 40px; color: #ffffff; max-width: 600px; margin: 0 auto; border-radius: 16px;">
             <div style="text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 20px; margin-bottom: 20px;">
@@ -97,11 +99,50 @@ app.post("/send-email", async (req, res) => {
     try {
         console.log(`Sending automated email alert to: ${recipient_email}`);
         await transporter.sendMail(mailOptions);
-        console.log("✅ Email sent successfully out into the network!");
+        console.log("✅ Email sent successfully!");
         return res.json({ success: true, message: "Email transmitted smoothly." });
     } catch (error) {
         console.error("❌ NODEMAILER CRASH ERROR:", error);
         return res.status(500).json({ error: "Failed to broadcast email over the network." });
+    }
+});
+
+// --- 📡 ENDPOINT 3: AUTOMATED ARKESEL SMS GATEWAY ---
+app.post("/send-sms", async (req, res) => {
+    const { phone_number, message_text } = req.body;
+
+    if (!phone_number || !message_text) {
+        return res.status(400).json({ error: "Missing phone number or message content." });
+    }
+
+    // Standardize Ghanaian numbers to international format (e.g., 0541234567 -> 233541234567)
+    let formattedPhone = phone_number.trim().replace(/\s+/g, '');
+    if (formattedPhone.startsWith("0")) {
+        formattedPhone = "233" + formattedPhone.substring(1);
+    } else if (formattedPhone.startsWith("+")) {
+        formattedPhone = formattedPhone.substring(1);
+    }
+
+    try {
+        console.log(`Initiating Arkesel SMS routing payload to: ${formattedPhone}`);
+        
+        const smsUrl = `https://sms.arkesel.com/api/v2/sms/send?key=${ARKESEL_API_KEY}&to=${formattedPhone}&msg=${encodeURIComponent(message_text)}&sender=${ARKESEL_SENDER_ID}`;
+        
+        const response = await fetch(smsUrl, { method: "GET" });
+        const resultData = await response.json();
+
+        // Arkesel usually returns a status text or code 100 for success
+        if (resultData.status === "success" || resultData.code === 100) {
+            console.log("✅ SMS broadcast complete across Ghana telco grids!");
+            return res.json({ success: true, data: resultData });
+        } else {
+            console.error("Arkesel gateway rejected transmission payload:", resultData);
+            return res.status(400).json({ error: resultData.message || "SMS delivery rejected by carrier." });
+        }
+
+    } catch (error) {
+        console.error("❌ ARKESEL GATEWAY CRASH ERROR:", error);
+        return res.status(500).json({ error: "Internal SMS service communication breakdown." });
     }
 });
 
